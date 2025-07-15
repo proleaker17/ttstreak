@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Streak Pet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --tiktok-pink: #FE2C55;
+            --tiktok-cyan: #25F4EE;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+            background-color: #121212; /* Dark background */
+        }
+
+        /* Custom scrollbar for pet selection */
+        .pet-selector::-webkit-scrollbar {
+            height: 8px;
+        }
+        .pet-selector::-webkit-scrollbar-track {
+            background: #2d2d2d;
+            border-radius: 10px;
+        }
+        .pet-selector::-webkit-scrollbar-thumb {
+            background: var(--tiktok-pink);
+            border-radius: 10px;
+        }
+        .pet-selector::-webkit-scrollbar-thumb:hover {
+            background: #e01a44;
+        }
+
+
+        /* Start Screen Overlay */
+        #start-screen {
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+        }
+
+        /* Main Game Screen (hidden initially) */
+        #game-screen {
+            display: none;
+        }
+
+        /* Main clickable Pet icon */
+        #pet-button {
+            object-fit: contain; /* This will prevent the image from being squashed */
+            transition: transform 0.1s ease-in-out;
+            user-select: none;
+            -webkit-user-drag: none;
+            filter: drop-shadow(0 0 15px var(--tiktok-cyan));
+            height: 100%; /* Fill its container */
+            width: auto;
+        }
+
+        #pet-button:active {
+            transform: scale(0.95);
+        }
+
+        /* Container for the flying particles */
+        #particle-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Individual particle styling and animation */
+        .particle {
+            position: absolute;
+            width: 35px;
+            height: 35px;
+            animation: fly-out 1.2s ease-out forwards;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        /* Animation keyframes for the particle effect */
+        @keyframes fly-out {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--x), var(--y)) scale(0.3) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        /* Styling for pet level selection */
+        .pet-level {
+            transition: all 0.2s ease-in-out;
+            border: 4px solid transparent;
+        }
+        .pet-level.selected {
+            border-color: var(--tiktok-cyan);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px var(--tiktok-cyan);
+        }
+    </style>
+</head>
+<body class="text-white select-none">
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-[#1a1a1a] rounded-xl shadow-2xl p-6 md:p-8 w-full max-w-md text-center border border-gray-700">
+            <h2 class="text-3xl md:text-4xl font-bold mb-2 text-white">Setup Your Profile</h2>
+            <p class="text-gray-400 mb-6">Customize your pet and profile.</p>
+            
+            <img id="avatar-preview" src="https://placehold.co/100x100/333333/FFFFFF?text=PFP" class="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-2 border-gray-600">
+            
+            <input type="text" id="nickname-input" placeholder="Enter your @account" class="w-full p-3 mb-4 bg-gray-800 border-2 border-gray-700 rounded-md text-center focus:border-pink-500 focus:outline-none placeholder-gray-500">
+            
+            <label for="avatar-input" class="w-full block bg-gray-700 text-white p-3 mb-6 rounded-md cursor-pointer hover:bg-gray-600 transition-colors">
+                Upload Profile Picture
+            </label>
+            <input type="file" id="avatar-input" accept="image/*" class="hidden">
+
+            <!-- Pet Level Selector -->
+            <h3 class="text-xl font-semibold mb-3">Choose your Pet Level</h3>
+            <div id="pet-selector" class="pet-selector flex items-center justify-start space-x-4 overflow-x-auto p-2 mb-6 bg-gray-800 rounded-lg">
+                <!-- Pet level options will be injected here by JavaScript -->
+            </div>
+
+            <button id="start-button" class="w-full bg-[#FE2C55] text-white font-bold p-3 rounded-md text-lg hover:bg-[#e01a44] transition-transform transform hover:scale-105 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                Start Streaking!
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="min-h-screen flex flex-col items-center justify-center p-4">
+        
+        <div id="player-info" class="absolute top-5 left-5 flex items-center gap-2 sm:gap-3 bg-black/30 p-2 rounded-full">
+            <img id="player-avatar" src="" alt="Avatar" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-pink-500 object-cover">
+            <span id="player-nickname" class="font-semibold sm:font-bold text-base sm:text-lg text-white"></span>
+        </div>
+
+        <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold uppercase text-gray-300 drop-shadow-lg" style="letter-spacing: 4px;">
+            Streak Pet
+        </h1>
+
+        <div class="flex items-center justify-center gap-2 sm:gap-4 my-2">
+            <img src="ogcoin.png" alt="Coin" class="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 rounded-full">
+            <div id="score" class="text-6xl sm:text-7xl md:text-8xl font-bold text-white drop-shadow-[0_0_10px_rgba(254,44,85,0.8)]">
+                0
+            </div>
+        </div>
+
+        <!-- Container for the main pet image, controlling its size -->
+        <div class="relative h-[60vh] md:h-[65vh] max-w-[90vw]">
+            <img id="pet-button"
+                 src="" alt="Streak Pet"
+                 class="cursor-pointer transition-transform duration-200">
+        </div>
+
+    </div>
+
+    <div id="particle-container"></div>
+
+    <script>
+        // --- DOM Element References ---
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        
+        const nicknameInput = document.getElementById('nickname-input');
+        const avatarInput = document.getElementById('avatar-input');
+        const avatarPreview = document.getElementById('avatar-preview');
+        const startButton = document.getElementById('start-button');
+
+        const playerAvatar = document.getElementById('player-avatar');
+        const playerNickname = document.getElementById('player-nickname');
+        
+        const petButton = document.getElementById('pet-button');
+        const scoreDisplay = document.getElementById('score');
+        const particleContainer = document.getElementById('particle-container');
+        const petSelectorContainer = document.getElementById('pet-selector');
+
+        // --- Game State & Config ---
+        let score = 0;
+        const pointsPerClick = 1;
+        let avatarSrc = avatarPreview.src;
+        let selectedPetSrc = '';
+
+        // --- IMPORTANT: ADD YOUR PET IMAGES HERE ---
+        // There are now only four levels.
+        const petLevels = [
+            { level: 1, name: 'Baby Flame', src: 'Lvl 1.png' },
+            { level: 2, name: 'Small Fire', src: 'Lvl 2.png' },
+            { level: 3, name: 'Growing Blaze', src: 'Lvl 3.png' },
+            { level: 4, name: 'Inferno', src: 'Lvl 4.png' },
+        ];
+        
+        // --- IMPORTANT: ADD YOUR PARTICLE IMAGE HERE ---
+        const particleImageSrc = 'ogcoin.png'; // A simple pink square as placeholder
+
+        // --- Start Screen Logic ---
+
+        // Populate the pet selector
+        function populatePetSelector() {
+            petLevels.forEach((pet, index) => {
+                const petDiv = document.createElement('div');
+                petDiv.className = 'flex-shrink-0';
+                
+                const petImg = document.createElement('img');
+                petImg.src = pet.src;
+                petImg.alt = pet.name;
+                // Changed from object-cover to object-contain to preserve aspect ratio
+                petImg.className = 'pet-level w-20 h-20 rounded-lg object-contain cursor-pointer bg-black/20';
+                petImg.dataset.src = pet.src;
+
+                if (index === 0) {
+                    petImg.classList.add('selected');
+                    selectedPetSrc = pet.src;
+                    startButton.disabled = false;
+                }
+
+                petDiv.appendChild(petImg);
+                petSelectorContainer.appendChild(petDiv);
+            });
+        }
+
+        // Handle pet selection
+        petSelectorContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('pet-level')) {
+                petSelectorContainer.querySelectorAll('.pet-level').forEach(el => el.classList.remove('selected'));
+                e.target.classList.add('selected');
+                selectedPetSrc = e.target.dataset.src;
+                startButton.disabled = false;
+            }
+        });
+
+        // Preview avatar on file selection
+        avatarInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    avatarSrc = event.target.result;
+                    avatarPreview.src = avatarSrc;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Handler for the start button
+        startButton.addEventListener('click', () => {
+            const nickname = nicknameInput.value.trim();
+            
+            if (!nickname) {
+                alert('Please enter your account name!');
+                return;
+            }
+            if (!selectedPetSrc) {
+                alert('Please select a pet level!');
+                return;
+            }
+            
+            // Set up player info
+            playerNickname.textContent = nickname;
+            playerAvatar.src = avatarSrc;
+            petButton.src = selectedPetSrc;
+            scoreDisplay.textContent = score;
+
+            // Switch screens
+            startScreen.style.display = 'none';
+            gameScreen.style.display = 'flex';
+        });
+
+        // --- Game Logic ---
+        petButton.addEventListener('click', (e) => {
+            score += pointsPerClick;
+            scoreDisplay.textContent = score;
+            
+            scoreDisplay.animate([
+                { transform: 'scale(1.2)', color: 'var(--tiktok-pink)' },
+                { transform: 'scale(1)', color: '#FFFFFF' }
+            ], {
+                duration: 200,
+                easing: 'ease-out'
+            });
+
+            createParticleBurst(e.clientX, e.clientY);
+        });
+        
+        /**
+         * Creates a burst of particles at the specified coordinates.
+         * @param {number} x - The horizontal coordinate of the click.
+         * @param {number} y - The vertical coordinate of the click.
+         */
+        function createParticleBurst(x, y) {
+            const particleCount = 8;
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('img');
+                particle.src = particleImageSrc;
+                particle.onerror = () => { particle.style.display = 'none'; };
+                particle.classList.add('particle');
+                particle.style.left = `${x - 18}px`;
+                particle.style.top = `${y - 18}px`;
+
+                const randomX = (Math.random() - 0.5) * 2 * 200;
+                const randomY = (Math.random() - 0.5) * 2 * 200;
+                
+                particle.style.setProperty('--x', `${randomX}px`);
+                particle.style.setProperty('--y', `${randomY}px`);
+
+                particleContainer.appendChild(particle);
+
+                setTimeout(() => {
+                    particle.remove();
+                }, 1200);
+            }
+        }
+
+        // --- Initialization ---
+        window.onload = () => {
+            // Always show the start screen on page load
+            populatePetSelector();
+            startButton.disabled = true;
+            startScreen.style.display = 'flex';
+        };
+
+    </script>
+
+</body>
+</html>
